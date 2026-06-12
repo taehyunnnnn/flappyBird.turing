@@ -3,64 +3,76 @@
 % Tei & Nihaal
 
 %INPUT
-var chars : array char of boolean
-var ch : string (1)
+var chars : array char of boolean   % holds state of all keys (for held-key detection)
+var ch : string (1)                 % holds a single keypress (for event-style input)
+
 %UI
 var flappybird, gameover, instruction, getready, bg, bg2 : int
+% n1f = "1" digit sized for the tens column; n1s = "1" digit sized for the units column
+% (the digit 1 is narrower than other digits and requires two separate assets)
 var n1f, n1s, n2, n3, n4, n5, n6, n7, n8, n9, n0, sx : int
+
 %GROUND
-var ground, gx, grx : int := 0
-%PIPE
+var ground, gx : int := 0
+var grx : int := 0    % reserved for a second ground tile; not currently used
+
+%PIPE  (pipe1 is active; pipe2 variables are reserved for a second pipe, not yet implemented)
 var pipet, pipeb, px, pty, pby : int
 var pipe2t, pipe2b, p2x, p2ty, p2by : int
-var xdiff, ydifft, ydiffb : int
+var xdiff, ydifft, ydiffb : int   % collision delta values reused each frame
+
 %STAT
 var start : boolean := false
-var background : int := 1
+var background : int := 1   % 1 = day, 2 = night
+
 %BIRD
 var bird1, bird2, bird3, flystatus : int := 0
 var birdx : int := 190
 var birdy : real := 360
+
 %SCORE
-var passstatus2 : boolean := false
+var passstatus2 : boolean := false   % reserved for second-pipe scoring; not yet used
 var scoreboard : int
 var score, recordscore, imagescore : int := 0
 var medal1, medal2 : int
+
 %FONT
 var font : int
 
-%GRAPHICS
+%GRAPHICS  — load all assets into picture handles
 font := Font.New ("Arial:20")
-flappybird := Pic.FileNew ("flappybird.bmp")
-gameover := Pic.FileNew ("game over.bmp")
-instruction := Pic.FileNew ("instruction.bmp")
-bg := Pic.FileNew ("background.bmp")
-bg2 := Pic.FileNew ("backgroundnight.bmp")
-ground := Pic.FileNew ("ground.bmp")
-pipet := Pic.FileNew ("pipet.bmp")
-pipeb := Pic.FileNew ("pipeb.bmp")
-bird1 := Pic.FileNew ("bird down.bmp")
-bird2 := Pic.FileNew ("bird middle.bmp")
-bird3 := Pic.FileNew ("bird up.bmp")
-scoreboard := Pic.FileNew ("Scoreboard.bmp")
-getready := Pic.FileNew ("get ready.bmp")
-n0 := Pic.FileNew ("n0.bmp")
-n1f := Pic.FileNew ("n1f.bmp")
-n1s := Pic.FileNew ("n1s.bmp")
-n2 := Pic.FileNew ("n2.bmp")
-n3 := Pic.FileNew ("n3.bmp")
-n4 := Pic.FileNew ("n4.bmp")
-n5 := Pic.FileNew ("n5.bmp")
-n6 := Pic.FileNew ("n6.bmp")
-n7 := Pic.FileNew ("n7.bmp")
-n8 := Pic.FileNew ("n8.bmp")
-n9 := Pic.FileNew ("n9.bmp")
-medal1 := Pic.FileNew ("medal1.bmp")
-medal2 := Pic.FileNew ("medal2.bmp")
+flappybird := Pic.FileNew ("assets/flappybird.bmp")
+gameover := Pic.FileNew ("assets/game over.bmp")
+instruction := Pic.FileNew ("assets/instruction.bmp")
+bg := Pic.FileNew ("assets/background.bmp")
+bg2 := Pic.FileNew ("assets/backgroundnight.bmp")
+ground := Pic.FileNew ("assets/ground.bmp")
+pipet := Pic.FileNew ("assets/pipet.bmp")
+pipeb := Pic.FileNew ("assets/pipeb.bmp")
+bird1 := Pic.FileNew ("assets/bird down.bmp")
+bird2 := Pic.FileNew ("assets/bird middle.bmp")
+bird3 := Pic.FileNew ("assets/bird up.bmp")
+scoreboard := Pic.FileNew ("assets/Scoreboard.bmp")
+getready := Pic.FileNew ("assets/get ready.bmp")
+n0 := Pic.FileNew ("assets/n0.bmp")
+n1f := Pic.FileNew ("assets/n1f.bmp")   % wide "1" for tens column
+n1s := Pic.FileNew ("assets/n1s.bmp")   % narrow "1" for units column
+n2 := Pic.FileNew ("assets/n2.bmp")
+n3 := Pic.FileNew ("assets/n3.bmp")
+n4 := Pic.FileNew ("assets/n4.bmp")
+n5 := Pic.FileNew ("assets/n5.bmp")
+n6 := Pic.FileNew ("assets/n6.bmp")
+n7 := Pic.FileNew ("assets/n7.bmp")
+n8 := Pic.FileNew ("assets/n8.bmp")
+n9 := Pic.FileNew ("assets/n9.bmp")
+medal1 := Pic.FileNew ("assets/medal1.bmp")
+medal2 := Pic.FileNew ("assets/medal2.bmp")
 setscreen ("graphics:430;650")
-View.Set ("offscreenonly")
+View.Set ("offscreenonly")   % enable double buffering to prevent flicker
 
 %PROCEDURE
+
+% Draws the title screen and resets pipe/score state to starting values.
 proc setup
     Pic.Draw (bg, 0, 0, 3)
     Pic.Draw (ground, 0, 0, 2)
@@ -74,6 +86,7 @@ proc setup
     sx := 75
 end setup
 
+% Displays the title screen and waits for the player to press Space to begin.
 proc ready
     setup
     loop
@@ -94,6 +107,7 @@ proc ready
     end loop
 end ready
 
+% Resets all game-state variables to their starting values for a new run.
 proc reset
     birdx := 190
     birdy := 360
@@ -106,6 +120,8 @@ proc reset
     start := true
 end reset
 
+% Shows the game-over scoreboard and waits for Space to restart.
+% Updates the session high score if the current run beats the record.
 proc death
     loop
 	if score > recordscore then
@@ -137,6 +153,8 @@ proc death
     end loop
 end death
 
+% Checks AABB overlap between the bird and the active pipe.
+% Sets start := false (triggering death) on any hit.
 proc collision
     xdiff := birdx - px
     ydiffb := round (birdy) - pby
@@ -149,6 +167,8 @@ proc collision
     end if
 end collision
 
+% Increments the score when a pipe passes the bird's x position.
+% Also controls the day/night background cycle every 25 points.
 proc passstatus
     if px = 190 then
 	score := score + 1
@@ -160,6 +180,8 @@ proc passstatus
     end if
 end passstatus
 
+% Hidden win-condition sequence triggered at score 100.
+% Plays a congratulatory text crawl, then loops an animated medal screen.
 proc ending
     cls
     View.Update
@@ -194,6 +216,10 @@ proc ending
     end loop
 end ending
 
+% Composites one complete frame: background, pipes, ground, animated bird, and score digits.
+% Score digits are drawn as individual BMP sprites rather than font characters.
+% imagescore = 1000 is a sentinel used when score = 1 (to avoid conflicting with the tens-digit
+% branch, which would otherwise draw n1f at x=10 for a two-digit score starting with 1).
 proc draw
     if background = 1 then
 	Pic.Draw (bg, 0, 0, 3)
@@ -215,7 +241,7 @@ proc draw
     end if
     if score >= 0 and score < 10 then
 	if score = 1 then
-	    imagescore := 1000
+	    imagescore := 1000   % sentinel: draw n1s (units "1") not n1f (tens "1")
 	else
 	    imagescore := score
 	    sx := 10
@@ -285,6 +311,9 @@ proc draw
     View.Update
 end draw
 
+% Scrolls the ground and the active pipe leftward each tick.
+% When the pipe exits the left edge, it is repositioned off the right edge
+% with a new randomized gap height.
 proc move
     gx := gx - 3
     if gx <= -72 then
@@ -300,12 +329,15 @@ proc move
     draw
 end move
 
+% Executes the bird's jump arc using sine interpolation over 0°–180°.
+% Accumulating sind(angle) across that range produces a smooth rise-then-fall
+% that feels more natural than a fixed-velocity model.
+% Collision is checked at the start, during each step, and again at the end.
 proc jump
     collision
     flystatus := 3
     for angle : 0 .. 180 by 5
 	birdy := birdy + 5 * sind (angle)
-	%Pic.Draw (bg, 0, 0, 3)
 	if background = 1 then
 	    Pic.Draw (bg, 0, 0, 3)
 	elsif background = 2 then
@@ -317,7 +349,6 @@ proc jump
 	elsif background = 2 then
 	    Pic.Draw (bg2, 0, 0, 3)
 	end if
-	%Pic.Draw (bg, 0, 0, 3)
 	move
 	collision
 	if birdy >= 600 then
@@ -327,6 +358,7 @@ proc jump
     collision
 end jump
 
+% Polls the keyboard each frame; triggers a jump when Space is held down.
 proc jumpstatus
     Input.KeyDown (chars)
     if chars (' ') then
@@ -334,6 +366,7 @@ proc jumpstatus
     end if
 end jumpstatus
 
+% Kills the bird if it falls below the ground line; clamps the top of the screen.
 proc boundary
     if birdy <= 125 then
 	death
@@ -372,6 +405,5 @@ loop
 	exit
     end if
 end loop
-
 
 

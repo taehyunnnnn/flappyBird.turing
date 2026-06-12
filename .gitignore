@@ -1,0 +1,11 @@
+# Turing IDE backup and temp files
+*.~*
+*.bak
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Turing compiled output
+*.exe
